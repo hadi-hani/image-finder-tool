@@ -23,26 +23,34 @@ git clone https://github.com/hadi-hani/image-finder-tool.git
 cd image-finder-tool
 ```
 
-### 2. Install dependencies
+### 2. Create a virtual environment and install dependencies
 
 ```bash
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
 ### 3. Add your API keys
 
-Open `app.py` and replace the placeholder values:
+Copy the example file and fill in your API keys:
 
-```python
-UNSPLASH_API_KEY = "your_unsplash_access_key"
-PEXELS_API_KEY = "your_pexels_api_key"
-PIXABAY_API_KEY = "your_pixabay_api_key"
+```bash
+cp .env.example .env
+```
+
+Then open `.env` and set your keys:
+
+```env
+UNSPLASH_API_KEY=your_unsplash_access_key
+PEXELS_API_KEY=your_pexels_api_key
+PIXABAY_API_KEY=your_pixabay_api_key
 ```
 
 ### 4. Run the app
 
 ```bash
-python app.py
+python3 app.py
 ```
 
 Open your browser at: **http://localhost:5000**

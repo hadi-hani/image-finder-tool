@@ -1,16 +1,23 @@
 
+import os
 from flask import Flask, render_template_string, request
 import requests
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = Flask(__name__)
 
-# ⚠️ استبدل هذه القيم بمفاتيحك الحقيقية
-UNSPLASH_API_KEY = "YOUR_UNSPLASH_API_KEY"
-PEXELS_API_KEY = "YOUR_PEXELS_API_KEY"
-PIXABAY_API_KEY = "YOUR_PIXABAY_API_KEY"
+# استخدم متغيرات البيئة لتخزين مفاتيح API
+UNSPLASH_API_KEY = os.getenv("UNSPLASH_API_KEY")
+PEXELS_API_KEY = os.getenv("PEXELS_API_KEY")
+PIXABAY_API_KEY = os.getenv("PIXABAY_API_KEY")
 
 def fetch_unsplash_images(query="nature", limit=5):
     """استدعاء Unsplash API"""
+    if not UNSPLASH_API_KEY:
+        return [], "مفتاح Unsplash غير مضبوط. الرجاء تعيين UNSPLASH_API_KEY في .env"
+
     url = "https://api.unsplash.com/search/photos"
     params = {'query': query, 'per_page': limit}
     headers = {'Authorization': f'Client-ID {UNSPLASH_API_KEY}'}
@@ -25,13 +32,18 @@ def fetch_unsplash_images(query="nature", limit=5):
                     'download_url': item['urls']['full'],
                     'author': item['user']['name']
                 })
-            return images
+            return images, None
+        return [], f"خطأ من Unsplash: {response.status_code}"
     except Exception as e:
         print(f"Unsplash error: {e}")
-    return []
+        return [], f"خطأ في الاتصال بUnsplash: {e}"
+
 
 def fetch_pexels_images(query="nature", limit=5):
     """استدعاء Pexels API"""
+    if not PEXELS_API_KEY:
+        return [], "مفتاح Pexels غير مضبوط. الرجاء تعيين PEXELS_API_KEY في .env"
+
     url = "https://api.pexels.com/v1/search"
     params = {'query': query, 'per_page': limit}
     headers = {'Authorization': PEXELS_API_KEY}
@@ -46,13 +58,18 @@ def fetch_pexels_images(query="nature", limit=5):
                     'download_url': item['src']['original'],
                     'author': item['photographer']
                 })
-            return images
+            return images, None
+        return [], f"خطأ من Pexels: {response.status_code}"
     except Exception as e:
         print(f"Pexels error: {e}")
-    return []
+        return [], f"خطأ في الاتصال بPexels: {e}"
+
 
 def fetch_pixabay_images(query="nature", limit=5):
     """استدعاء Pixabay API"""
+    if not PIXABAY_API_KEY:
+        return [], "مفتاح Pixabay غير مضبوط. الرجاء تعيين PIXABAY_API_KEY في .env"
+
     url = "https://pixabay.com/api/"
     params = {
         'key': PIXABAY_API_KEY,
@@ -71,10 +88,11 @@ def fetch_pixabay_images(query="nature", limit=5):
                     'download_url': item['largeImageURL'],
                     'author': item['user']
                 })
-            return images
+            return images, None
+        return [], f"خطأ من Pixabay: {response.status_code}"
     except Exception as e:
         print(f"Pixabay error: {e}")
-    return []
+        return [], f"خطأ في الاتصال بPixabay: {e}"
 
 HTML_TEMPLATE = """
 <!DOCTYPE html>
@@ -105,6 +123,7 @@ HTML_TEMPLATE = """
         .badge-unsplash { background: #000; color: #fff; }
         .badge-pexels { background: #05a081; color: #fff; }
         .badge-pixabay { background: #2ec66e; color: #fff; }
+        .api-error { color: #c0392b; background: #fdecea; border: 1px solid #f5c6cb; border-radius: 6px; padding: 10px; margin-bottom: 15px; }
     </style>
 </head>
 <body>
@@ -119,6 +138,9 @@ HTML_TEMPLATE = """
         {% if results %}
         <div class="api-section">
             <h2><span class="badge badge-unsplash">Unsplash</span> نتائج Unsplash API</h2>
+            {% if errors and errors.unsplash %}
+            <div class="api-error">{{ errors.unsplash }}</div>
+            {% endif %}
             <div class="images-grid">
                 {% for image in results.unsplash %}
                 <div class="image-card">
@@ -153,6 +175,9 @@ HTML_TEMPLATE = """
         </div>
         <div class="api-section">
             <h2><span class="badge badge-pixabay">Pixabay</span> نتائج Pixabay API</h2>
+            {% if errors and errors.pixabay %}
+            <div class="api-error">{{ errors.pixabay }}</div>
+            {% endif %}
             <div class="images-grid">
                 {% for image in results.pixabay %}
                 <div class="image-card">
@@ -176,17 +201,27 @@ HTML_TEMPLATE = """
 
 @app.route('/')
 def home():
-    return render_template_string(HTML_TEMPLATE, results=None, query=None)
+    return render_template_string(HTML_TEMPLATE, results=None, errors=None, query=None)
 
 @app.route('/search')
 def search():
     query = request.args.get('query', 'nature')
+    unsplash_images, unsplash_error = fetch_unsplash_images(query)
+    pexels_images, pexels_error = fetch_pexels_images(query)
+    pixabay_images, pixabay_error = fetch_pixabay_images(query)
+
     results = {
-        'unsplash': fetch_unsplash_images(query),
-        'pexels': fetch_pexels_images(query),
-        'pixabay': fetch_pixabay_images(query)
+        'unsplash': unsplash_images,
+        'pexels': pexels_images,
+        'pixabay': pixabay_images
     }
-    return render_template_string(HTML_TEMPLATE, results=results, query=query)
+    errors = {
+        'unsplash': unsplash_error,
+        'pexels': pexels_error,
+        'pixabay': pixabay_error
+    }
+
+    return render_template_string(HTML_TEMPLATE, results=results, errors=errors, query=query)
 
 if __name__ == '__main__':
     app.run(debug=True)
